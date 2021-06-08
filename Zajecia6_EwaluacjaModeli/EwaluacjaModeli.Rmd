@@ -1,0 +1,202 @@
+---
+title: "Ewaluacja1/2/3"
+output: github_document
+---
+
+```{r}
+wd<-read.csv2("weather.csv",header=TRUE,stringsAsFactors=FALSE)
+wd
+str(wd)
+
+library(dplyr)
+wd<-select(wd,-id,-DWD_ID,-FEDERAL.STATE,-STATION.NAME,-PERIOD) #17 kolumn zamiast 22
+
+wd1<-wd[complete.cases(wd),]
+dim(wd1)
+wd1
+
+library(caTools)
+
+split<-sample.split(wd1, SplitRatio = 2/8)
+
+learn<-wd1[split,]
+
+test<-wd1[!split,]
+
+RainfallLearn<-learn[c(11)]
+RainfallTest<-test[c(11)]
+
+RainfallExceptLearn<-learn[c(1:10,12:17)]
+RainfallExceptTest<-test[c(1:10,12:17)]
+```
+```{r}
+
+library(GGally)
+ggpairs(RainfallExceptLearn)
+ggpairs(RainfallExceptTest)
+
+corr<-cor(wd1)
+class(corr)
+
+library(corrplot)
+corrplot(corr)
+corrplot(corr,method="number",type="lower")
+
+more<-wd1[abs(corr['MEAN.ANNUAL.RAINFALL',])>=0.5]
+
+ggpairs(more)
+
+```
+
+
+```{r}
+#czesc 2
+
+#brak zmiennej objasniajacej
+RainModel<-lm(MEAN.ANNUAL.RAINFALL~1,data=wd1)
+#RainModel
+summary(RainModel)
+
+MeanRainfall<-mean(RainfallLearn$MEAN.ANNUAL.RAINFALL)
+MeanRainfall
+
+RMSE<-sqrt(mean(RainModel$residuals^2))
+RMSE
+
+```
+```{r}
+prediction<-predict(RainModel,test)
+RMSE2<-sqrt(mean((prediction-test$MEAN.ANNUAL.RAINFALL)^2))
+RMSE2
+
+par(mfrow=c(1,2))
+plot(test$MEAN.ANNUAL.RAINFALL)
+abline(RainModel)
+plot(learn$MEAN.ANNUAL.RAINFALL)
+abline(RainModel)
+
+Model2<-lm(MEAN.ANNUAL.RAINFALL~ALTITUDE,data=learn)
+summary(Model2)
+RMSE3<-sqrt(mean(Model2$residuals^2))
+RMSE3
+
+prediction2<-predict(Model2,test)
+RMSE4<-sqrt(mean((prediction2-test$MEAN.ANNUAL.RAINFALL)^2))
+RMSE4
+
+par(mfrow=c(1,2))
+plot(learn$ALTITUDE,learn$MEAN.ANNUAL.RAINFALL)
+abline(Model2)
+plot(test$ALTITUDE,test$MEAN.ANNUAL.RAINFALL)
+abline(Model2)
+
+```
+```{r}
+Model3<-lm(MEAN.ANNUAL.RAINFALL~MAX.RAINFALL,data=learn)
+summary(Model3)
+
+RMSE5<-sqrt(mean(Model3$residuals^2))
+RMSE5
+
+prediction3<-predict(Model3,test)
+RMSE6<-sqrt(mean((prediction3-test$MEAN.ANNUAL.RAINFALL)^2))
+RMSE6
+
+par(mfrow=c(1,2))
+plot(learn$MAX.RAINFALL,learn$MEAN.ANNUAL.RAINFALL)
+abline(Model3)
+plot(test$MAX.RAINFALL,test$MEAN.ANNUAL.RAINFALL)
+abline(Model3)
+
+Model4<-lm(data=learn,formula=MEAN.ANNUAL.RAINFALL~ALTITUDE+
+             MAX.RAINFALL)
+summary(Model4)
+
+RMSE7<-sqrt(mean(Model4$residuals^2))
+RMSE7
+```
+```{r}
+prediction4<-predict(Model4,test)
+RMSE8<-sqrt(mean((prediction4-test$MEAN.ANNUAL.RAINFALL)^2))
+RMSE8
+
+library("scatterplot3d")
+par(mfrow=c(1,2))
+scatter.3d_learn<-scatterplot3d(learn$ALTITUDE,learn$MAX.RAINFALL,learn$MEAN.ANNUAL.RAINFALL)
+scatter.3d_learn$plane3d(Model4)
+scatter.3d_test<-scatterplot3d(test$ALTITUDE,test$MAX.RAINFALL,test$MEAN.ANNUAL.RAINFALL)
+scatter.3d_test$plane3d(Model4)
+```
+```{r}
+library(Metrics)
+
+par(mfrow=c(1,2))
+r1<-rmse(learn$MEAN.ANNUAL.RAINFALL,predict(RainModel))
+r2<-rmse(learn$MEAN.ANNUAL.RAINFALL,predict(Model2))
+r3<-rmse(learn$MEAN.ANNUAL.RAINFALL,predict(Model3))
+r4<-rmse(learn$MEAN.ANNUAL.RAINFALL,predict(Model4))
+
+x<-c(1,2,3,4)
+y<-c(r1,r2,r3,r4)
+
+plot(x,y,xlab="Model",ylab="RMSE",main="Zbior treningowy")
+
+#rmse zbioru testowego
+r1<-rmse(test$MEAN.ANNUAL.RAINFALL,prediction)
+r2<-rmse(test$MEAN.ANNUAL.RAINFALL,prediction2)
+r3<-rmse(test$MEAN.ANNUAL.RAINFALL,prediction3)
+r4<-rmse(test$MEAN.ANNUAL.RAINFALL,prediction4)
+
+x<-c(1,2,3,4)
+y<-c(r1,r2,r3,r4)
+
+plot(x,y,xlab="Model",ylab="RMSE",main="Zbior testowy")
+
+#d�ugo�� d�uszego obiektu nie jest wielokrotno�ci� d�ugo�ci kr�tszego obiektu     
+#blad w wykresie
+```
+
+```{r}
+#czesc 3
+
+RainModel<-lm(learn,formula=MEAN.ANNUAL.RAINFALL~RECORD.LENGTH+
+             log(RECORD.LENGTH)+RECORD.LENGTH^2)
+
+summary(RainModel)
+RMSE1<-rmse(learn$MEAN.ANNUAL.RAINFALL,predict(RainModel))
+RMSE1
+
+RMSE2<-rmse(test$MEAN.ANNUAL.RAINFALL,predict(RainModel,test))
+RMSE2
+
+RainModel2<-lm(learn,formula=MEAN.ANNUAL.RAINFALL~MAX.RAINFALL+
+             log(MAX.RAINFALL)+MAX.RAINFALL^2)
+summary(RainModel2)
+RMSE3<-rmse(learn$MEAN.ANNUAL.RAINFALL,predict(RainModel2))
+RMSE3
+
+RMSE4<-rmse(test$MEAN.ANNUAL.RAINFALL,predict(RainModel2,test))
+RMSE4
+
+RainModel3<-lm(learn,formula=(MEAN.ANNUAL.RAINFALL~RECORD.LENGTH+
+             log(RECORD.LENGTH)+RECORD.LENGTH^2+MAX.RAINFALL+
+             log(MAX.RAINFALL)+MAX.RAINFALL^2+(RECORD.LENGTH*MAX.RAINFALL)))
+summary(RainModel3)
+RMSE5<-rmse(learn$MEAN.ANNUAL.RAINFALL,predict(RainModel3))
+RMSE5
+
+RMSE6<-rmse(test$MEAN.ANNUAL.RAINFALL,predict(RainModel3,test))
+RMSE6
+
+```
+```{r}
+#selekcja
+
+BaseModel<-lm(learn,formula=MEAN.ANNUAL.RAINFALL~1)
+summary(BaseModel)
+
+AvailableVariables<-c("Altitude", Max Rainfall,
+Mean cloud cover oraz Mean annual air temp)
+
+```
+
